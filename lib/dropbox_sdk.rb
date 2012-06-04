@@ -421,7 +421,7 @@ class DropboxClient
     # * The file contents.
     def get_file(from_path, rev=nil, output_file_path=nil)
         response = get_file_impl(from_path, rev, output_file_path)
-        parse_response(response, raw=true)
+        parse_response(response, raw=true) if output_file_path
     end
 
     # Download a file and get its metadata.
