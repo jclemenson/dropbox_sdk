@@ -32,7 +32,7 @@ class DropboxSession
 
     private
 
-    def do_http(uri, auth_token, request) # :nodoc:
+    def do_http(uri, auth_token, request, output_file_path=nil) # :nodoc:
         http = Net::HTTP.new(uri.host, uri.port)
 
         http.use_ssl = true
@@ -45,7 +45,17 @@ class DropboxSession
         request['User-Agent'] =  "OfficialDropboxRubySDK/#{Dropbox::SDK_VERSION}"
 
         begin
+          if output_file_path
+            File.open(output_file_path, 'wb') do |file|
+              http.request(request) do |response|
+                response.read_body do |segment|
+                  file.write(segment)
+                end
+              end
+            end
+          else
             http.request(request)
+          end
         rescue OpenSSL::SSL::SSLError => e
             raise DropboxError.new("SSL error connecting to Dropbox.  " +
                                    "There may be a problem with the set of certificates in \"#{Dropbox::TRUSTED_CERT_FILE}\".  " +
@@ -70,16 +80,16 @@ class DropboxSession
         header
     end
 
-    def do_get_with_token(url, token, headers=nil) # :nodoc:
+    def do_get_with_token(url, token, headers=nil, output_file_path=nil) # :nodoc:
         uri = URI.parse(url)
-        do_http(uri, token, Net::HTTP::Get.new(uri.request_uri))
+        do_http(uri, token, Net::HTTP::Get.new(uri.request_uri), output_file_path)
     end
 
     public
 
-    def do_get(url, headers=nil)  # :nodoc:
+    def do_get(url, headers=nil, output_file_path=nil)  # :nodoc:
         assert_authorized
-        do_get_with_token(url, @access_token)
+        do_get_with_token(url, @access_token, headers, output_file_path)
     end
 
     def do_http_with_body(uri, request, body)
@@ -409,8 +419,8 @@ class DropboxClient
     #
     # Returns:
     # * The file contents.
-    def get_file(from_path, rev=nil)
-        response = get_file_impl(from_path, rev)
+    def get_file(from_path, rev=nil, output_file_path=nil)
+        response = get_file_impl(from_path, rev, output_file_path)
         parse_response(response, raw=true)
     end
 
@@ -438,12 +448,12 @@ class DropboxClient
     #
     # Returns:
     # * The HTTPResponse for the file download request.
-    def get_file_impl(from_path, rev=nil) # :nodoc:
+    def get_file_impl(from_path, rev=nil, output_file_path=nil) # :nodoc:
         params = {}
         params['rev'] = rev.to_s if rev
 
         path = "/files/#{@root}#{format_path(from_path)}"
-        @session.do_get build_url(path, params, content_server=true)
+        @session.do_get(build_url(path, params, content_server=true), nil, output_file_path)
     end
     private :get_file_impl
 
